@@ -4,7 +4,17 @@
   "description": "Mobile calculators PWA: zakat on money and gold, Egyptian electricity bill by tier (editable tariff), percentage and discount, 14% VAT, loan installment, BMI, age, bill splitting.",
   "scripts": {
     "test": "node test.js",
-    "start": "npx --yes serve ."
+    "start": "npx --yes serve www",
+    "sync": "cap sync android",
+    "android": "cap open android",
+    "build:apk": "cd android && ./gradlew assembleDebug"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/core": "^7.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.0.0"
+  }
 }
