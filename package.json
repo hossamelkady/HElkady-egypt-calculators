@@ -1,0 +1,10 @@
+{
+  "name": "helkady-egypt-calculators",
+  "version": "1.0.0",
+  "description": "Mobile calculators PWA: zakat on money and gold, Egyptian electricity bill by tier (editable tariff), percentage and discount, 14% VAT, loan installment, BMI, age, bill splitting.",
+  "scripts": {
+    "test": "node test.js",
+    "start": "npx --yes serve ."
+  },
+  "license": "MIT"
+}

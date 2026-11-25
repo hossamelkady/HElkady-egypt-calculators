@@ -1,0 +1,31 @@
+const $=id=>document.getElementById(id);
+const store={get(k,f){try{const v=JSON.parse(localStorage.getItem('calc-'+k));return v==null?f:v}catch(e){return f}},set(k,v){localStorage.setItem('calc-'+k,JSON.stringify(v));}};
+const f=n=>isFinite(n)?(Math.round(n*100)/100).toLocaleString('ar-EG'):'-';
+const num=id=>parseFloat(($(id).value||'').replace(/[٠-٩]/g,c=>'٠١٢٣٤٥٦٧٨٩'.indexOf(c)).replace('٫','.'))||0;
+const field=(id,label,val,extra)=>'<label>'+label+'</label><input id="'+id+'" inputmode="decimal" value="'+(val==null?'':val)+'" '+(extra||'')+'>';
+const out=h=>'<div class="res" id="out">'+h+'</div>';
+function wire(calc,ids,persist){ids.forEach(i=>{$(i).oninput=()=>{if(persist&&persist.includes(i))store.set(i,$(i).value);run();};if($(i).tagName==='SELECT')$(i).onchange=$(i).oninput;});function run(){$('out').innerHTML=calc();}run();}
+const T={
+zakat:{n:'زكاة المال',r(){$('main').innerHTML='<div class="card">'+field('gold','سعر جرام الذهب عيار 24 (اكتبه بنفسك)',store.get('gold',''))+field('total','إجمالي المال (كاش + ذهب + استثمارات)','')+field('debts','الديون المستحقة عليك','0')+'<label><input type="checkbox" id="year" checked style="width:auto"> مر عليه سنة هجرية</label>'+out('')+'<p class="muted">النصاب = 85 جرام ذهب عيار 24، النسبة 2.5%. اسأل أهل العلم في حالتك.</p></div>';
+ wire(()=>{const g=num('gold');if(!g)return 'اكتب سعر الجرام أول';const z=CALC.zakatMoney(num('total'),num('debts'),g,$('year').checked);return 'النصاب: '+f(z.nisab)+'<br>الصافي: '+f(z.net)+'<br>'+(z.due?'الزكاة المستحقة: '+f(z.zakat):'مفيش زكاة (أقل من النصاب أو لسه سنة ما تمتش)');},['gold','total','debts','year'],['gold']);}},
+zgold:{n:'زكاة الذهب',r(){$('main').innerHTML='<div class="card">'+field('gold','سعر جرام الذهب عيار 24',store.get('gold',''))+field('grams','وزن الذهب بالجرام','')+'<label>العيار</label><select id="k"><option>24</option><option selected>21</option><option>18</option></select><label><input type="checkbox" id="year" checked style="width:auto"> مر عليه سنة هجرية</label>'+out('')+'</div>';
+ wire(()=>{const g=num('gold');if(!g)return 'اكتب سعر الجرام أول';const z=CALC.zakatGold(num('grams'),+$('k').value,g,$('year').checked);return 'ذهب خالص: '+f(z.pureGrams)+' جرام<br>القيمة: '+f(z.value)+'<br>'+(z.due?'الزكاة: '+f(z.zakat):'مفيش زكاة (أقل من 85 جرام خالص)');},['gold','grams','k','year'],['gold']);}},
+elec:{n:'فاتورة الكهرباء',r(){const tf=store.get('tariff',CALC.TARIFF.map(t=>({upTo:t.upTo===Infinity?null:t.upTo,pt:t.pt})));
+ const toT=()=>tf.map((t,i)=>({upTo:t.upTo==null?Infinity:t.upTo,pt:+($('pt'+i).value)||0}));
+ $('main').innerHTML='<div class="card">'+field('kwh','الاستهلاك (كيلووات ساعة)','')+'<label>طريقة الحساب</label><select id="mode"><option value="marginal">كل شريحة بسعرها</option><option value="whole">كل الاستهلاك بسعر شريحته</option></select>'+out('')+'<b>الأسعار (قرش لكل ك.و.س) قابلة للتعديل</b><table>'+tf.map((t,i)=>'<tr><td>'+(i?'حتى '+(t.upTo==null?'أكتر':t.upTo):'حتى '+t.upTo)+'</td><td><input id="pt'+i+'" value="'+t.pt+'" inputmode="numeric"></td></tr>').join('')+'</table><p class="muted">أسعار أغسطس 2026 من الصحف. مش شامل رسوم الخدمة. راجع فاتورتك الفعلية.</p></div>';
+ wire(()=>{const t=toT();store.set('tariff',t.map(x=>({upTo:x.upTo===Infinity?null:x.upTo,pt:x.pt})));return 'القيمة: '+f(CALC.electricity(num('kwh'),t,$('mode').value))+' جنيه';},['kwh','mode'].concat(tf.map((_,i)=>'pt'+i)));}},
+pct:{n:'نسبة وخصم',r(){$('main').innerHTML='<div class="card">'+field('a','الرقم الأول','')+field('b','الرقم الثاني','')+out('')+'<p class="muted">النتائج: أ% من ب، أ كام % من ب، التغيير من أ إلى ب، وسعر ب بعد خصم أ%.</p></div>';
+ wire(()=>{const a=num('a'),b=num('b');const d=CALC.discount(b,a);return a+'% من '+b+' = '+f(CALC.percentOf(a,b))+'<br>'+a+' هي '+f(CALC.whatPercent(a,b))+'% من '+b+'<br>التغيير من '+a+' إلى '+b+': '+f(CALC.pctChange(a,b))+'%<br>'+b+' بعد خصم '+a+'%: '+f(d.final)+' (التوفير '+f(d.off)+')';},['a','b']);}},
+vat:{n:'ضريبة 14%',r(){$('main').innerHTML='<div class="card">'+field('amt','المبلغ','')+field('rate','النسبة %',14)+'<label>المبلغ</label><select id="m"><option value="excl">قبل الضريبة</option><option value="included">شامل الضريبة</option></select>'+out('')+'</div>';
+ wire(()=>{const v=CALC.vat(num('amt'),num('rate'),$('m').value);return 'الأساس: '+f(v.base)+'<br>الضريبة: '+f(v.vat)+'<br>الإجمالي: '+f(v.total);},['amt','rate','m']);}},
+loan:{n:'قسط القرض',r(){$('main').innerHTML='<div class="card">'+field('p','مبلغ القرض','')+field('i','الفائدة السنوية %','')+field('mo','المدة بالشهور',12)+'<label>النوع</label><select id="t"><option value="flat">فائدة ثابتة (flat)</option><option value="reducing">متناقصة</option></select>'+out('')+'</div>';
+ wire(()=>{const l=CALC.loan(num('p'),num('i'),num('mo'),$('t').value);return l?'القسط الشهري: '+f(l.monthly)+'<br>الإجمالي: '+f(l.total)+'<br>الفوايد: '+f(l.interest):'اكتب المبلغ والمدة';},['p','i','mo','t']);}},
+bmi:{n:'كتلة الجسم',r(){$('main').innerHTML='<div class="card">'+field('kg','الوزن (كجم)','')+field('cm','الطول (سم)','')+out('')+'</div>';
+ wire(()=>{if(!num('kg')||!num('cm'))return 'اكتب الوزن والطول';const b=CALC.bmi(num('kg'),num('cm'));return 'المؤشر: '+f(b.bmi)+'<br>'+b.category;},['kg','cm']);}},
+age:{n:'العمر',r(){$('main').innerHTML='<div class="card"><label>تاريخ الميلاد</label><input type="date" id="bd"><label>إلى تاريخ</label><input type="date" id="to" value="'+new Date().toISOString().slice(0,10)+'">'+out('')+'</div>';
+ wire(()=>{if(!$('bd').value)return 'اختار تاريخ الميلاد';const a=CALC.ageBetween(new Date($('bd').value),new Date($('to').value));return a.years+' سنة و'+a.months+' شهر و'+a.days+' يوم<br>('+f(a.totalDays)+' يوم)';},['bd','to']);}},
+split:{n:'قسمة الفاتورة',r(){$('main').innerHTML='<div class="card">'+field('t','الفاتورة','')+field('n','عدد الأشخاص',2)+field('tip','بقشيش %',0)+out('')+'</div>';
+ wire(()=>{const n=Math.max(1,num('n'));const s=CALC.splitBill(num('t'),n,num('tip'));return 'الإجمالي: '+f(s.total)+'<br>على الفرد: '+f(s.perPerson);},['t','n','tip']);}}
+};
+const tabs=$('tabs');Object.keys(T).forEach(k=>{const b=document.createElement('button');b.textContent=T[k].n;b.onclick=()=>{[...tabs.children].forEach(x=>x.classList.remove('on'));b.classList.add('on');T[k].r();};tabs.appendChild(b);});
+tabs.children[0].click();if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
